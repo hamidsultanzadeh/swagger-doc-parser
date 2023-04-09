@@ -1,5 +1,6 @@
 package org.example;
 
+import org.example.constraints.Constant;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -12,16 +13,23 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+
 public class Main {
 
     public static void main(String[] args) throws IOException {
-        Main main = new Main();
+        merge();
+    }
+
+    static void merge() throws IOException {
+        doMerge(getFileNames());
+    }
+
+    static void doMerge(List<String> fileNames) throws IOException {
         Yaml yaml = new Yaml();
-        List<String> fileNames = main.getFileNames();
 
         Map<String, Object> resultObj = null;
         for (String fileName : fileNames) {
-            Map<String, Object> obj = main.load(yaml, fileName);
+            Map<String, Object> obj = load(yaml, fileName);
             if (resultObj == null) {
                 resultObj = obj;
                 continue;
@@ -30,13 +38,12 @@ public class Main {
             compareSchemasObj(obj, resultObj);
         }
 
-        String output = convertMapToString(resultObj);
-        writeOutputToFile(output);
+        writeOutputToFile(convertMapToString(resultObj));
     }
 
     static void writeOutputToFile(String output) throws IOException {
         BufferedWriter writer = null;
-        writer = new BufferedWriter(new FileWriter("result.yaml"));
+        writer = new BufferedWriter(new FileWriter(Constant.RESULT_FILE_NAME));
         writer.write(output);
         writer.close();
     }
@@ -46,8 +53,8 @@ public class Main {
         options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
         options.setPrettyFlow(true);
 
-        Yaml yaml1 = new Yaml(options);
-        return yaml1.dump(resultObj);
+        Yaml yaml = new Yaml(options);
+        return yaml.dump(resultObj);
     }
 
     @SuppressWarnings("unchecked")
@@ -61,21 +68,44 @@ public class Main {
 
     @SuppressWarnings("unchecked")
     static void replace(Map<String, Object> map) {
-        map.forEach((k, v) -> {
-            if (v instanceof Map || v instanceof List) {
-                if (v instanceof Map) {
-                    replace((Map<String, Object>) v);
+        for (Map.Entry<String, Object> entry : map.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+            if (value instanceof Map || value instanceof List) {
+                if (value instanceof Map) {
+                    checkAndReplaceContent(entry);
+                    replace((Map<String, Object>) value);
                 } else {
-                    replace((List<?>) v);
+                    replace((List<?>) value);
                 }
-            } else if (v instanceof String) {
-                String[] values = ((String) v).split(".yaml");
-                map.put(k, values.length > 1 ? values[1] : values[0]);
+            } else if (value instanceof String) {
+                String[] values = ((String) value).split(Constant.YAML_EXTENSION);
+                String newValue = values.length > 1 ? values[1] : values[0];
+                map.put(key, newValue);
             }
-        });
+        }
     }
 
-    List<String> getFileNames() {
+    @SuppressWarnings("unchecked")
+    static void checkAndReplaceContent(Map.Entry<String, Object> parentEntry) {
+        Map<String, Object> parentValue = (Map<String, Object>) parentEntry.getValue();
+        if (Constant.CONTENT.equals(parentEntry.getKey())) {
+            for (Map.Entry<String, Object> entry : parentValue.entrySet()) {
+                String key = entry.getKey();
+                Object value = entry.getValue();
+                if (Constant.PATTERN.equals(key)) {
+                    if (value instanceof Map) {
+                        parentEntry.setValue(Map.entry(Constant.CONTENT,
+                                Map.entry(Constant.CONTENT_TYPE, (Map<String, Object>) value)));
+                    } else if (value instanceof String) {
+                        parentEntry.setValue(Map.entry(Constant.CONTENT, Constant.CONTENT_TYPE));
+                    }
+                }
+            }
+        }
+    }
+
+    static List<String> getFileNames() {
         List<String> fileNames = new ArrayList<>();
 
         File folder = new File("/home/ubuntu/Workspace/teamprojects/swagger-documentation-parser/src/main/resources");
@@ -94,35 +124,37 @@ public class Main {
 
     @SuppressWarnings("unchecked")
     static void comparePathObj(Map<String, Object> obj, Map<String, Object> resultObj) {
-        Map<String, Object> pathsObj = (Map<String, Object>) obj.get("paths");
+        Map<String, Object> pathsObj = (Map<String, Object>) obj.get(Constant.PATHS_KEY);
         if (pathsObj == null) return;
-        Map<String, Object> resultPathsObj = (Map<String, Object>) resultObj.get("paths");
-        pathsObj.forEach((k, v) -> {
-            if (!resultPathsObj.containsKey(k)) {
-                replace((Map<String, Object>) v);
-                resultPathsObj.put(k, v);
+        Map<String, Object> resultPathsObj = (Map<String, Object>) resultObj.get(Constant.PATHS_KEY);
+        for (Map.Entry<String, Object> entry : pathsObj.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+            if (!resultPathsObj.containsKey(key)) {
+                replace((Map<String, Object>) value);
+                resultPathsObj.put(key, value);
             }
-        });
+        }
     }
 
     @SuppressWarnings("unchecked")
     static void compareSchemasObj(Map<String, Object> obj, Map<String, Object> resultObj) {
-        Map<String, Object> componentsObj = (Map<String, Object>) obj.get("components");
+        Map<String, Object> componentsObj = (Map<String, Object>) obj.get(Constant.COMPONENTS_KEY);
         if (componentsObj == null) return;
-        Map<String, Object> schemasObj = (Map<String, Object>) componentsObj.get("schemas");
+        Map<String, Object> schemasObj = (Map<String, Object>) componentsObj.get(Constant.SCHEMAS_KEY);
         if (schemasObj == null) return;
-        Map<String, Object> resultComponentsObj = (Map<String, Object>) resultObj.get("components");
-        Map<String, Object> resultSchemasObj = (Map<String, Object>) resultComponentsObj.get("schemas");
-        schemasObj.forEach((k, v) -> {
-            if (!resultSchemasObj.containsKey(k)) {
-                replace((Map<String, Object>) v);
-                resultSchemasObj.put(k, v);
+        Map<String, Object> resultComponentsObj = (Map<String, Object>) resultObj.get(Constant.COMPONENTS_KEY);
+        Map<String, Object> resultSchemasObj = (Map<String, Object>) resultComponentsObj.get(Constant.SCHEMAS_KEY);
+        schemasObj.forEach((key, value) -> {
+            if (!resultSchemasObj.containsKey(key)) {
+                replace((Map<String, Object>) value);
+                resultSchemasObj.put(key, value);
             }
         });
     }
 
-    Map<String, Object> load(Yaml yaml, String fileName) {
-        InputStream inputStream = this.getClass()
+    static Map<String, Object> load(Yaml yaml, String fileName) {
+        InputStream inputStream = Main.class
                 .getClassLoader()
                 .getResourceAsStream(fileName);
         return yaml.load(inputStream);

@@ -1,6 +1,6 @@
 package org.example;
 
-import org.example.constraints.Constant;
+import org.example.constants.Constant;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -15,6 +15,8 @@ import java.util.Map;
 
 
 public class Main {
+
+    private final static StringBuilder stringBuilder = new StringBuilder();
 
     public static void main(String[] args) throws IOException {
         merge();
@@ -38,12 +40,14 @@ public class Main {
             compareSchemasObj(obj, resultObj);
         }
 
-        writeOutputToFile(convertMapToString(resultObj));
+        writeOutputToFile(
+                convertMapToString(resultObj),
+                Constant.RESULT_FILE_NAME);
     }
 
-    static void writeOutputToFile(String output) throws IOException {
+    static void writeOutputToFile(String output, String fileName) throws IOException {
         BufferedWriter writer = null;
-        writer = new BufferedWriter(new FileWriter(Constant.RESULT_FILE_NAME));
+        writer = new BufferedWriter(new FileWriter(fileName));
         writer.write(output);
         writer.close();
     }
@@ -61,29 +65,45 @@ public class Main {
     static void replace(List<?> list) {
         for (Object obj : list) {
             if (obj instanceof Map) {
-                replace((Map<String, Object>) obj);
+                replaceAndLog((Map<String, Object>) obj);
             }
         }
     }
 
     @SuppressWarnings("unchecked")
-    static void replace(Map<String, Object> map) {
+    static void replaceAndLog(Map<String, Object> map) {
         for (Map.Entry<String, Object> entry : map.entrySet()) {
             String key = entry.getKey();
             Object value = entry.getValue();
             if (value instanceof Map || value instanceof List) {
                 if (value instanceof Map) {
                     checkAndReplaceContent(entry);
-                    replace((Map<String, Object>) value);
+                    replaceAndLog((Map<String, Object>) value);
                 } else {
                     replace((List<?>) value);
                 }
-            } else if (value instanceof String) {
-                String[] values = ((String) value).split(Constant.YAML_EXTENSION);
-                String newValue = values.length > 1 ? values[1] : values[0];
-                map.put(key, newValue);
+            } else if (value instanceof String)
+                doReplace(map, key, (String) value);
+        }
+        try {
+            writeOutputToFile(stringBuilder.toString(), Constant.REPLACE_LOG_FILE_NAME);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    static void doReplace(Map<String, Object> map, String key, String value) {
+        String[] values = value.split(Constant.YAML_EXTENSION);
+        String currValue = values.length > 1 ? values[1] : values[0];
+        if (Constant.REF.equals(key)) {
+            String editedValue = currValue.replaceAll(Constant.REPLACE_PATTERN, Constant.DEFAULT_STRING);
+            if (!currValue.equals(editedValue)) {
+                stringBuilder.append(
+                        String.format(Constant.REPLACE_SENTENCE, currValue, editedValue));
+                currValue = editedValue;
             }
         }
+        map.put(key, currValue);
     }
 
     @SuppressWarnings("unchecked")
@@ -131,7 +151,7 @@ public class Main {
             String key = entry.getKey();
             Object value = entry.getValue();
             if (!resultPathsObj.containsKey(key)) {
-                replace((Map<String, Object>) value);
+                replaceAndLog((Map<String, Object>) value);
                 resultPathsObj.put(key, value);
             }
         }
@@ -147,7 +167,7 @@ public class Main {
         Map<String, Object> resultSchemasObj = (Map<String, Object>) resultComponentsObj.get(Constant.SCHEMAS_KEY);
         schemasObj.forEach((key, value) -> {
             if (!resultSchemasObj.containsKey(key)) {
-                replace((Map<String, Object>) value);
+                replaceAndLog((Map<String, Object>) value);
                 resultSchemasObj.put(key, value);
             }
         });

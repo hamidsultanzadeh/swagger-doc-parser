@@ -10,6 +10,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -40,9 +41,12 @@ public class Main {
             compareSchemasObj(obj, resultObj);
         }
 
-        writeOutputToFile(
-                convertMapToString(resultObj),
-                Constant.RESULT_FILE_NAME);
+        if(resultObj!=null) {
+            generateAndPutInfoObj(resultObj);
+            writeOutputToFile(
+                    convertMapToString(resultObj),
+                    Constant.RESULT_FILE_NAME);
+        }
     }
 
     static void writeOutputToFile(String output, String fileName) throws IOException {
@@ -115,8 +119,14 @@ public class Main {
                 Object value = entry.getValue();
                 if (Constant.PATTERN.equals(key)) {
                     if (value instanceof Map) {
-                        parentEntry.setValue(Map.entry(Constant.CONTENT,
-                                Map.entry(Constant.CONTENT_TYPE, (Map<String, Object>) value)));
+                        HashMap<String, Object> hashMap = new HashMap<>();
+                        HashMap<String, Object> objectHashMap = new HashMap<>();
+                        objectHashMap.put(Constant.CONTENT_TYPE, value);
+                        hashMap.put(Constant.CONTENT, objectHashMap);
+                        parentEntry.setValue(hashMap);
+
+//                        parentEntry.setValue(Map.entry(Constant.CONTENT,
+//                                Map.entry(Constant.CONTENT_TYPE, value)));
                     } else if (value instanceof String) {
                         parentEntry.setValue(Map.entry(Constant.CONTENT, Constant.CONTENT_TYPE));
                     }
@@ -171,6 +181,21 @@ public class Main {
                 resultSchemasObj.put(key, value);
             }
         });
+    }
+
+    static void generateAndPutInfoObj(Map<String, Object> resultObj) {
+        resultObj.put(Constant.Key.INFO,
+                Map.of(Constant.Key.CONTACT,
+                        Map.of(Constant.Key.EMAIL, Constant.Info.CONTACT_EMAIL,
+                                Constant.Key.NAME, Constant.Info.CONTACT_NAME,
+                                Constant.Key.URL, Constant.Info.CONTACT_URL),
+                        Constant.Key.DESCRIPTION, Constant.Info.DESCRIPTION,
+                        Constant.Key.LICENSE,
+                        Map.of(Constant.Key.NAME, Constant.Info.LICENSE_NAME,
+                                Constant.Key.URL, Constant.Info.LICENSE_URL),
+                        Constant.Key.TERMS_OF_SERVICE, Constant.Info.TERMS_OF_SERVICE,
+                        Constant.Key.TITLE, Constant.Info.TITLE,
+                        Constant.Key.VERSION, Constant.Info.VERSION));
     }
 
     static Map<String, Object> load(Yaml yaml, String fileName) {

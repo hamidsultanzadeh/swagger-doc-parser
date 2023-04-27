@@ -31,6 +31,8 @@ public final class Constant {
     public final static String YAML_EXTENSION = ".yaml";
     public final static String PATTERN = "*/*";
     public final static String CONTENT = "content";
+    public final static String DEFAULT = "default";
+    public final static String RESPONSES = "responses";
     public final static String CONTENT_TYPE = "application/json";
 
     public final static class Info {

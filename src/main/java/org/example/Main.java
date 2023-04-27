@@ -31,12 +31,10 @@ public class Main {
         Yaml yaml = new Yaml();
 
         Map<String, Object> resultObj = null;
+        resultObj = load(yaml, "init.yaml");
+
         for (String fileName : fileNames) {
             Map<String, Object> obj = load(yaml, fileName);
-            if (resultObj == null) {
-                resultObj = obj;
-                continue;
-            }
             comparePathObj(obj, resultObj);
             compareSchemasObj(obj, resultObj);
         }
@@ -77,7 +75,6 @@ public class Main {
     @SuppressWarnings("unchecked")
     static void replaceAndLog(Map<String, Object> map) {
         for (Map.Entry<String, Object> entry : map.entrySet()) {
-            String key = entry.getKey();
             Object value = entry.getValue();
             if (value instanceof Map || value instanceof List) {
                 if (value instanceof Map) {
@@ -87,7 +84,7 @@ public class Main {
                     replace((List<?>) value);
                 }
             } else if (value instanceof String)
-                doReplace(map, key, (String) value);
+                doReplace(map, entry.getKey(), (String) value);
         }
         try {
             writeOutputToFile(stringBuilder.toString(), Constant.REPLACE_LOG_FILE_NAME);
@@ -111,27 +108,31 @@ public class Main {
     }
 
     @SuppressWarnings("unchecked")
-    static void checkAndReplaceContent(Map.Entry<String, Object> parentEntry) {
-        Map<String, Object> parentValue = (Map<String, Object>) parentEntry.getValue();
-        if (Constant.CONTENT.equals(parentEntry.getKey())) {
-            for (Map.Entry<String, Object> entry : parentValue.entrySet()) {
-                String key = entry.getKey();
-                Object value = entry.getValue();
-                if (Constant.PATTERN.equals(key)) {
-                    if (value instanceof Map) {
-                        HashMap<String, Object> hashMap = new HashMap<>();
-                        HashMap<String, Object> objectHashMap = new HashMap<>();
-                        objectHashMap.put(Constant.CONTENT_TYPE, value);
-                        hashMap.put(Constant.CONTENT, objectHashMap);
-                        parentEntry.setValue(hashMap);
-
-//                        parentEntry.setValue(Map.entry(Constant.CONTENT,
-//                                Map.entry(Constant.CONTENT_TYPE, value)));
-                    } else if (value instanceof String) {
-                        parentEntry.setValue(Map.entry(Constant.CONTENT, Constant.CONTENT_TYPE));
-                    }
+    static void checkAndReplaceContent(Map.Entry<String, Object> entry) {
+        if (Constant.RESPONSES.equals(entry.getKey())) {
+            Map<String, Object> resourcesMap = (Map<String, Object>) entry.getValue();
+            Map<String, Object> defaultMap = ((Map<String, Object>) resourcesMap.get(Constant.DEFAULT));
+            if (defaultMap != null && !defaultMap.isEmpty()) {
+                Map<String, Object> contentMap = (Map<String, Object>) defaultMap.get(Constant.CONTENT);
+                if (contentMap.isEmpty()) {
+                    Map<String, Object> brandNewResponsesMap = new HashMap<>();
+                    for (Map.Entry<String, Object> responsesEntry : ((Map<String, Object>) entry.getValue()).entrySet())
+                        if (!responsesEntry.getKey().equals(Constant.DEFAULT))
+                            brandNewResponsesMap.put(responsesEntry.getKey(), responsesEntry.getValue());
+                    entry.setValue(brandNewResponsesMap);
+                    return;
                 }
             }
+        }
+        if (Constant.CONTENT.equals(entry.getKey())) {
+            Map<String, Object> contentEntryValue = (Map<String, Object>) entry.getValue();
+
+            for (Map.Entry<String, Object> objectEntry : contentEntryValue.entrySet())
+                if (Constant.PATTERN.equals(objectEntry.getKey())) {
+                    Map<String, Object> tempMap = new HashMap<>();
+                    tempMap.put(Constant.CONTENT_TYPE, objectEntry.getValue());
+                    entry.setValue(tempMap);
+                }
         }
     }
 
@@ -158,11 +159,9 @@ public class Main {
         if (pathsObj == null) return;
         Map<String, Object> resultPathsObj = (Map<String, Object>) resultObj.get(Constant.PATHS_KEY);
         for (Map.Entry<String, Object> entry : pathsObj.entrySet()) {
-            String key = entry.getKey();
-            Object value = entry.getValue();
-            if (!resultPathsObj.containsKey(key)) {
-                replaceAndLog((Map<String, Object>) value);
-                resultPathsObj.put(key, value);
+            if (!resultPathsObj.containsKey(entry.getKey())) {
+                replaceAndLog((Map<String, Object>) entry.getValue());
+                resultPathsObj.put(entry.getKey(), entry.getValue());
             }
         }
     }
@@ -175,12 +174,12 @@ public class Main {
         if (schemasObj == null) return;
         Map<String, Object> resultComponentsObj = (Map<String, Object>) resultObj.get(Constant.COMPONENTS_KEY);
         Map<String, Object> resultSchemasObj = (Map<String, Object>) resultComponentsObj.get(Constant.SCHEMAS_KEY);
-        schemasObj.forEach((key, value) -> {
-            if (!resultSchemasObj.containsKey(key)) {
-                replaceAndLog((Map<String, Object>) value);
-                resultSchemasObj.put(key, value);
+        for (Map.Entry<String, Object> entry : schemasObj.entrySet()) {
+            if (!resultSchemasObj.containsKey(entry.getKey())) {
+                replaceAndLog((Map<String, Object>) entry.getValue());
+                resultSchemasObj.put(entry.getKey(), entry.getValue());
             }
-        });
+        }
     }
 
     static void generateAndPutInfoObj(Map<String, Object> resultObj) {

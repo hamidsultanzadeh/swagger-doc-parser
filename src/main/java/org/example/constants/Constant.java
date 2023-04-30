@@ -1,5 +1,7 @@
 package org.example.constants;
 
+import java.io.File;
+
 public final class Constant {
 
     public final static class Key {
@@ -34,6 +36,9 @@ public final class Constant {
     public final static String DEFAULT = "default";
     public final static String RESPONSES = "responses";
     public final static String CONTENT_TYPE = "application/json";
+
+    public final static String RESOURCES_FOLDER = System.getProperty("user.dir") +
+            File.separator + "src" + File.separator + "main" + File.separator + "resources";
 
     public final static class Info {
 

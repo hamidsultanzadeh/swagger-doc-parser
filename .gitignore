@@ -40,3 +40,8 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+**/src/main/resources/*.yaml
+!**/src/main/resources/init.yaml
+log.txt
+result.yaml

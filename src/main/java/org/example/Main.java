@@ -14,6 +14,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.example.constants.Constant.RESOURCES_FOLDER;
+
 
 public class Main {
 
@@ -30,8 +32,7 @@ public class Main {
     static void doMerge(List<String> fileNames) throws IOException {
         Yaml yaml = new Yaml();
 
-        Map<String, Object> resultObj = null;
-        resultObj = load(yaml, "init.yaml");
+        Map<String, Object> resultObj = load(yaml, "init.yaml");
 
         for (String fileName : fileNames) {
             Map<String, Object> obj = load(yaml, fileName);
@@ -96,14 +97,14 @@ public class Main {
     static void doReplace(Map<String, Object> map, String key, String value) {
         String[] values = value.split(Constant.YAML_EXTENSION);
         String currValue = values.length > 1 ? values[1] : values[0];
-        if (Constant.REF.equals(key)) {
-            String editedValue = currValue.replaceAll(Constant.REPLACE_PATTERN, Constant.DEFAULT_STRING);
-            if (!currValue.equals(editedValue)) {
-                stringBuilder.append(
-                        String.format(Constant.REPLACE_SENTENCE, currValue, editedValue));
-                currValue = editedValue;
-            }
-        }
+//        if (Constant.REF.equals(key)) {
+//            String editedValue = currValue.replaceAll(Constant.REPLACE_PATTERN, Constant.DEFAULT_STRING);
+//            if (!currValue.equals(editedValue)) {
+//                stringBuilder.append(
+//                        String.format(Constant.REPLACE_SENTENCE, currValue, editedValue));
+//                currValue = editedValue;
+//            }
+//        }
         map.put(key, currValue);
     }
 
@@ -138,8 +139,7 @@ public class Main {
 
     static List<String> getFileNames() {
         List<String> fileNames = new ArrayList<>();
-
-        File folder = new File("/home/ubuntu/Workspace/teamprojects/swagger-documentation-parser/src/main/resources");
+        File folder = new File(RESOURCES_FOLDER);
         File[] listOfFiles = folder.listFiles();
 
         if (listOfFiles == null) return fileNames;
@@ -157,7 +157,7 @@ public class Main {
     static void comparePathObj(Map<String, Object> obj, Map<String, Object> resultObj) {
         Map<String, Object> pathsObj = (Map<String, Object>) obj.get(Constant.PATHS_KEY);
         if (pathsObj == null) return;
-        Map<String, Object> resultPathsObj = (Map<String, Object>) resultObj.get(Constant.PATHS_KEY);
+        Map<String, Object> resultPathsObj = getIfNullCreate(resultObj, Constant.PATHS_KEY);
         for (Map.Entry<String, Object> entry : pathsObj.entrySet()) {
             if (!resultPathsObj.containsKey(entry.getKey())) {
                 replaceAndLog((Map<String, Object>) entry.getValue());
@@ -172,8 +172,8 @@ public class Main {
         if (componentsObj == null) return;
         Map<String, Object> schemasObj = (Map<String, Object>) componentsObj.get(Constant.SCHEMAS_KEY);
         if (schemasObj == null) return;
-        Map<String, Object> resultComponentsObj = (Map<String, Object>) resultObj.get(Constant.COMPONENTS_KEY);
-        Map<String, Object> resultSchemasObj = (Map<String, Object>) resultComponentsObj.get(Constant.SCHEMAS_KEY);
+        Map<String, Object> resultComponentsObj = getIfNullCreate(resultObj, Constant.COMPONENTS_KEY);
+        Map<String, Object> resultSchemasObj = getIfNullCreate(resultComponentsObj, Constant.SCHEMAS_KEY);
         for (Map.Entry<String, Object> entry : schemasObj.entrySet()) {
             if (!resultSchemasObj.containsKey(entry.getKey())) {
                 replaceAndLog((Map<String, Object>) entry.getValue());
@@ -195,6 +195,17 @@ public class Main {
                         Constant.Key.TERMS_OF_SERVICE, Constant.Info.TERMS_OF_SERVICE,
                         Constant.Key.TITLE, Constant.Info.TITLE,
                         Constant.Key.VERSION, Constant.Info.VERSION));
+    }
+
+    @SuppressWarnings("unchecked")
+    static Map<String, Object> getIfNullCreate(Map<String, Object> source, String key) {
+        Map<String, Object> obj = (Map<String, Object>) source.get(key);
+        if (obj == null) {
+            obj = new HashMap<>();
+            source.put(key, obj);
+            return obj;
+        }
+        return obj;
     }
 
     static Map<String, Object> load(Yaml yaml, String fileName) {
